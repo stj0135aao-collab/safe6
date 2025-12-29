@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>靜宜大學安全守護</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="靜宜安全">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1160/1160358.png">
+    <meta name="theme-color" content="#ff0055">
+
+    <style>
+        :root {
+            --safety-red: #ff0055;
+            --neon-blue: #01cdfe;
+            --bg-dark: #0d0221;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            overscroll-behavior-y: contain; 
+        }
+
+        .header {
+            margin-top: 30px;
+            text-align: center;
+            text-shadow: 0 0 10px var(--neon-blue);
+        }
+
+        .sos-button {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--safety-red) 0%, #550000 100%);
+            border: 5px solid white;
+            box-shadow: 0 0 30px var(--safety-red);
+            color: white;
+            font-size: 2.5rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 40px 0;
+            cursor: pointer;
+            animation: pulse 1.5s infinite;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0px rgba(255, 0, 85, 0.7); }
+            100% { box-shadow: 0 0 0 30px rgba(255, 0, 85, 0); }
+        }
+
+        .sos-button:active { transform: scale(0.9); }
+
+        .report-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        .report-item {
+            background: rgba(1, 205, 254, 0.1);
+            border: 1px solid var(--neon-blue);
+            padding: 15px;
+            text-align: center;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .report-item:active { background: var(--neon-blue); color: black; }
+
+        #status {
+            margin-top: 30px;
+            font-size: 0.9rem;
+            color: var(--neon-blue);
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>靜宜大學安全守護</h1>
+        <p style="letter-spacing: 2px; opacity: 0.7;">CAMPUS SAFETY VIBE</p>
+    </div>
+
+    <div class="sos-button" onclick="handleSOS()">SOS</div>
+
+    <div class="report-grid">
+        <div class="report-item" onclick="handleReport('可疑人士')">👤 可疑人士</div>
+        <div class="report-item" onclick="handleReport('設施毀損')">🛠️ 設施毀損</div>
+        <div class="report-item" onclick="handleReport('醫療救援')">🚑 醫療救援</div>
+        <div class="report-item" onclick="handleReport('火警隱患')">🔥 火警隱患</div>
+    </div>
+
+    <div id="status">正在取得您的位置...</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+
+    <script>
+        // --- 初始化 EmailJS (請填入你的 Public Key) ---
+        emailjs.init("YOUR_PUBLIC_KEY");
+
+        let currentPos = { lat: 0, lng: 0 };
+        let posString = "定位中...";
+
+        // 2. 持續追蹤位置
+        if (navigator.geolocation) {
+            navigator.geolocation.watchPosition(pos => {
+                currentPos.lat = pos.coords.latitude;
+                currentPos.lng = pos.coords.longitude;
+                posString = `緯度: ${currentPos.lat.toFixed(4)}, 經度: ${currentPos.lng.toFixed(4)}`;
+                document.getElementById('status').innerText = `目前位置: ${posString}`;
+            }, null, { enableHighAccuracy: true });
+        }
+
+        // 3. 警報音效函數
+        function playAlarm() {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(880, ctx.currentTime); // 高頻音
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            // 逼逼聲效果
+            setInterval(() => {
+                gain.gain.setValueAtTime(gain.gain.value === 0 ? 1 : 0, ctx.currentTime);
+            }, 200);
+        }
+
+        // 4. 發送通知邏輯
+        function sendEmail(type) {
+            const params = {
+                report_type: type,
+                lat: currentPos.lat,
+                lng: currentPos.lng,
+                maps_url: `https://www.google.com/maps?q=${currentPos.lat},${currentPos.lng}`
+            };
+            
+            // 替換成你的 Service ID 和 Template ID
+            emailjs.send("YOUR_SERVICE_ID", "YOUR_TEMPLATE_ID", params)
+                .then(() => console.log("通知已發送"))
+                .catch(err => console.error("發送失敗", err));
+        }
+
+        function handleSOS() {
+            playAlarm();
+            sendEmail("🚨 緊急求救 SOS");
+            alert("🚨 警報已啟動！救援通知已發送至校警隊與緊急聯絡人。");
+        }
+
+        function handleReport(type) {
+            sendEmail(type);
+            alert(`已記錄回報：【${type}】\n位置：${posString}\n感謝您的協助！`);
+        }
+    </script>
+</body>
+</html>
